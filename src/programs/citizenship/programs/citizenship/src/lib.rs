@@ -1,247 +1,177 @@
-//lib.rs
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::Token};
+use anchor_lang::solana_program::clock::Clock;
 
-declare_id!("4AxDhKc6HoRmtUnjHFup9x6uEyd8byg2EVwZUa9vzSgy");
-
-pub mod error;
-pub mod instructions;
-pub mod payment;
-pub mod state;
-pub mod utils;
-
-use crate::{error::*, instructions::*, payment::*, state::*, utils::*};
+declare_id!("CtbpDgdRNsPsUeLHU46p7vB4ZT678cp3rHsvwn2hgKWj"); // Replace with your program ID
 
 #[program]
-pub mod gtopia_land {
+pub mod gtopia_citizenship {
     use super::*;
 
-    pub fn initialize_country(
-        ctx: Context<InitializeCountry>,
-        args: InitializeCountryArgs,
+    pub fn initialize(
+        ctx: Context<Initialize>,
+        normal_citizenship_price: u64,
+        senior_citizenship_price: u64,
+        normal_visa_price_per_hour: u64,
+        senior_visa_price_per_hour: u64,
     ) -> Result<()> {
-        let country = &mut ctx.accounts.country;
-        let grid = &mut ctx.accounts.grid;
+        let state = &mut ctx.accounts.state;
+        state.authority = ctx.accounts.authority.key();
+        state.normal_citizenship_price = normal_citizenship_price;
+        state.senior_citizenship_price = senior_citizenship_price;
+        state.normal_visa_price_per_hour = normal_visa_price_per_hour;
+        state.senior_visa_price_per_hour = senior_visa_price_per_hour;
+        Ok(())
+    }
 
-        require!(
-            args.width * args.height == 10_000_000_000,
-            LandError::InvalidDimensions
+    pub fn purchase_citizenship(ctx: Context<PurchaseCitizenship>, is_senior: bool) -> Result<()> {
+        let state = &ctx.accounts.state;
+        let clock = Clock::get()?;
+
+        // Calculate price based on citizenship type
+        let price = if is_senior {
+            state.senior_citizenship_price
+        } else {
+            state.normal_citizenship_price
+        };
+
+        // Transfer payment
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::Transfer {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.authority.to_account_info(),
+            },
         );
+        anchor_lang::system_program::transfer(cpi_context, price)?;
 
-        country.authority = ctx.accounts.authority.key();
-        country.width = args.width;
-        country.height = args.height;
-        country.total_units = args.width * args.height;
-        country.units_sold = 0;
-        country.payment_mint = ctx.accounts.payment_mint.key();
-        country.price_per_unit = args.price_per_unit;
-        country.treasury = ctx.accounts.treasury.key();
-        country.regions = vec![];
-
-        // Initialize empty vectors for grid state
-        grid.occupied_coordinates = vec![];
-        grid.region_plots = vec![];
-
-        emit!(CountryInitialized {
-            authority: country.authority,
-            width: country.width,
-            height: country.height,
-            payment_mint: country.payment_mint,
-        });
+        // Create citizenship record
+        let citizenship = &mut ctx.accounts.citizenship;
+        citizenship.owner = ctx.accounts.payer.key();
+        citizenship.is_senior = is_senior;
+        citizenship.start_time = clock.unix_timestamp;
+        citizenship.expiry_time = clock.unix_timestamp + (365 * 24 * 60 * 60); // 1 year in seconds
+        citizenship.is_active = true;
 
         Ok(())
     }
 
-    pub fn purchase_land(ctx: Context<PurchaseLand>, args: PurchaseLandArgs) -> Result<()> {
-        let country = &mut ctx.accounts.country;
-        let grid = &mut ctx.accounts.grid;
-        let plot = &mut ctx.accounts.land_plot;
+    pub fn purchase_visa(
+        ctx: Context<PurchaseVisa>,
+        is_senior: bool,
+        duration_hours: u64,
+    ) -> Result<()> {
+        require!(duration_hours > 0, CustomError::InvalidDuration);
+        require!(duration_hours <= 30 * 24, CustomError::DurationTooLong); // Max 30 days
 
-        // Verify land availability and bounds
-        require!(
-            is_valid_plot(country, args.start_x, args.start_y, args.width, args.height)?,
-            LandError::InvalidPlot
+        let state = &ctx.accounts.state;
+        let clock = Clock::get()?;
+
+        // Calculate price based on visa type and duration
+        let price_per_hour = if is_senior {
+            state.senior_visa_price_per_hour
+        } else {
+            state.normal_visa_price_per_hour
+        };
+        let total_price = price_per_hour * duration_hours;
+
+        // Transfer payment
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::Transfer {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.authority.to_account_info(),
+            },
         );
+        anchor_lang::system_program::transfer(cpi_context, total_price)?;
 
-        require!(
-            !is_land_occupied(grid, args.start_x, args.start_y, args.width, args.height)?,
-            LandError::LandOccupied
-        );
-
-        // Calculate payment
-        let total_units = args.width * args.height;
-        let payment_amount = total_units
-            .checked_mul(country.price_per_unit)
-            .ok_or(LandError::CalculationError)?;
-
-        // Process payment
-        process_payment(
-            payment_amount,
-            &ctx.accounts.buyer_token,
-            &ctx.accounts.treasury_token,
-            &ctx.accounts.buyer,
-            &ctx.accounts.token_program,
-        )?;
-
-        // Create the plot
-        plot.owner = ctx.accounts.buyer.key();
-        plot.start_x = args.start_x;
-        plot.start_y = args.start_y;
-        plot.width = args.width;
-        plot.height = args.height;
-        plot.is_listed = false;
-        plot.price_per_unit = 0;
-        plot.timestamp = Clock::get()?.unix_timestamp;
-        plot.neighbors =
-            find_neighboring_plots(grid, args.start_x, args.start_y, args.width, args.height)?;
-        plot.region_id = calculate_region_id(args.start_x, args.start_y);
-
-        // Update grid state
-        update_grid_state(
-            grid,
-            args.start_x,
-            args.start_y,
-            args.width,
-            args.height,
-            plot.key(),
-        )?;
-
-        // Update country stats
-        country.units_sold = country
-            .units_sold
-            .checked_add(total_units)
-            .ok_or(LandError::CalculationError)?;
-
-        emit!(LandPurchased {
-            buyer: ctx.accounts.buyer.key(),
-            plot: plot.key(),
-            start_x: args.start_x,
-            start_y: args.start_y,
-            width: args.width,
-            height: args.height,
-            price: payment_amount,
-        });
+        // Create visa record
+        let visa = &mut ctx.accounts.visa;
+        visa.owner = ctx.accounts.payer.key();
+        visa.is_senior = is_senior;
+        visa.start_time = clock.unix_timestamp;
+        visa.expiry_time = clock.unix_timestamp + (duration_hours as i64 * 3600); // Convert hours to seconds
+        visa.is_active = true;
 
         Ok(())
     }
+}
 
-    pub fn split_plot(ctx: Context<SplitPlot>, args: SplitPlotArgs) -> Result<()> {
-        let grid = &mut ctx.accounts.grid;
-        let original_plot = &mut ctx.accounts.original_plot;
-        let new_plot = &mut ctx.accounts.new_plot;
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8 + 8)]
+    pub state: Account<'info, ProgramState>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
-        // Verify ownership and plot validity
-        require!(
-            original_plot.owner == ctx.accounts.owner.key(),
-            LandError::NotOwner
-        );
+#[derive(Accounts)]
+pub struct PurchaseCitizenship<'info> {
+    #[account(mut)]
+    pub state: Account<'info, ProgramState>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 32 + 1 + 8 + 8 + 1
+    )]
+    pub citizenship: Account<'info, Citizenship>,
+    /// CHECK: This is the wallet that will receive the payment
+    #[account(mut)]
+    pub authority: AccountInfo<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
-        require!(
-            is_within_plot(
-                original_plot,
-                args.split_x,
-                args.split_y,
-                args.width,
-                args.height
-            )?,
-            LandError::InvalidSplit
-        );
+#[derive(Accounts)]
+pub struct PurchaseVisa<'info> {
+    #[account(mut)]
+    pub state: Account<'info, ProgramState>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 32 + 1 + 8 + 8 + 1
+    )]
+    pub visa: Account<'info, Visa>,
+    /// CHECK: This is the wallet that will receive the payment
+    #[account(mut)]
+    pub authority: AccountInfo<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
-        // Create new plot
-        new_plot.owner = ctx.accounts.owner.key();
-        new_plot.start_x = args.split_x;
-        new_plot.start_y = args.split_y;
-        new_plot.width = args.width;
-        new_plot.height = args.height;
-        new_plot.is_listed = false;
-        new_plot.price_per_unit = 0;
-        new_plot.timestamp = Clock::get()?.unix_timestamp;
-        new_plot.neighbors =
-            find_neighboring_plots(grid, args.split_x, args.split_y, args.width, args.height)?;
-        new_plot.region_id = calculate_region_id(args.split_x, args.split_y);
+#[account]
+pub struct ProgramState {
+    pub authority: Pubkey,
+    pub normal_citizenship_price: u64,
+    pub senior_citizenship_price: u64,
+    pub normal_visa_price_per_hour: u64,
+    pub senior_visa_price_per_hour: u64,
+}
 
-        // Update original plot dimensions
-        update_original_plot_after_split(
-            original_plot,
-            args.split_x,
-            args.split_y,
-            args.width,
-            args.height,
-        )?;
+#[account]
+pub struct Citizenship {
+    pub owner: Pubkey,
+    pub is_senior: bool,
+    pub start_time: i64,
+    pub expiry_time: i64,
+    pub is_active: bool,
+}
 
-        // Update grid state
-        update_grid_state(
-            grid,
-            args.split_x,
-            args.split_y,
-            args.width,
-            args.height,
-            new_plot.key(),
-        )?;
+#[account]
+pub struct Visa {
+    pub owner: Pubkey,
+    pub is_senior: bool,
+    pub start_time: i64,
+    pub expiry_time: i64,
+    pub is_active: bool,
+}
 
-        emit!(PlotSplit {
-            original_plot: original_plot.key(),
-            new_plot: new_plot.key(),
-            split_x: args.split_x,
-            split_y: args.split_y,
-            width: args.width,
-            height: args.height,
-        });
-
-        Ok(())
-    }
-
-    pub fn merge_plots(ctx: Context<MergePlots>) -> Result<()> {
-        let grid = &mut ctx.accounts.grid;
-        let plot_a = &mut ctx.accounts.plot_a;
-        let plot_b = &mut ctx.accounts.plot_b;
-
-        // Verify ownership and adjacency
-        require!(
-            plot_a.owner == plot_b.owner && plot_a.owner == ctx.accounts.owner.key(),
-            LandError::NotOwner
-        );
-
-        require!(
-            are_plots_adjacent(plot_a, plot_b)?,
-            LandError::PlotsNotAdjacent
-        );
-
-        // Calculate new dimensions
-        let (new_x, new_y, new_width, new_height) = calculate_merged_dimensions(plot_a, plot_b)?;
-
-        // Update plot_a with merged dimensions
-        plot_a.owner = ctx.accounts.owner.key();
-        plot_a.start_x = new_x;
-        plot_a.start_y = new_y;
-        plot_a.width = new_width;
-        plot_a.height = new_height;
-        plot_a.is_listed = false;
-        plot_a.price_per_unit = 0;
-        plot_a.timestamp = Clock::get()?.unix_timestamp;
-        plot_a.neighbors = find_neighboring_plots(grid, new_x, new_y, new_width, new_height)?;
-        plot_a.region_id = calculate_region_id(new_x, new_y);
-
-        // Update grid state
-        update_grid_after_merge(
-            grid,
-            plot_a.key(),
-            plot_b.key(),
-            new_x,
-            new_y,
-            new_width,
-            new_height,
-        )?;
-
-        emit!(PlotsMerged {
-            plot_a: plot_a.key(),
-            plot_b: plot_b.key(),
-            new_x: new_x,
-            new_y: new_y,
-            new_width: new_width,
-            new_height: new_height,
-        });
-
-        Ok(())
-    }
+#[error_code]
+pub enum CustomError {
+    #[msg("Duration must be greater than 0")]
+    InvalidDuration,
+    #[msg("Visa duration cannot exceed 30 days")]
+    DurationTooLong,
 }

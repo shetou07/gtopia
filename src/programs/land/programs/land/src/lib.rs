@@ -1,247 +1,405 @@
-//lib.rs
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::Token};
+use solana_program::pubkey;
 
 declare_id!("4AxDhKc6HoRmtUnjHFup9x6uEyd8byg2EVwZUa9vzSgy");
 
-pub mod error;
-pub mod instructions;
-pub mod payment;
-pub mod state;
-pub mod utils;
-
-use crate::{error::*, instructions::*, payment::*, state::*, utils::*};
+// Initial owner of all GTopia land
+pub const INITIAL_OWNER: Pubkey = pubkey!("32vAzHuyxfGV6hC1vM8Gonh3s9kGfUdwaNJmjTNfV82b");
 
 #[program]
 pub mod gtopia_land {
     use super::*;
 
-    pub fn initialize_country(
-        ctx: Context<InitializeCountry>,
-        args: InitializeCountryArgs,
+    pub fn create_land_plot(
+        ctx: Context<CreateLandPlot>,
+        start_x: u64,
+        start_y: u64,
+        width: u64,
+        height: u64,
     ) -> Result<()> {
-        let country = &mut ctx.accounts.country;
-        let grid = &mut ctx.accounts.grid;
+        let land_plot = &mut ctx.accounts.land_plot;
 
+        // If creator is initial owner, land is automatically listed for sale and rent
+        if ctx.accounts.creator.key() == INITIAL_OWNER {
+            land_plot.is_for_sale = true;
+            land_plot.is_for_rent = true;
+            land_plot.price_per_unit = 100_000_000; // Initial price per unit (0.1 SOL)
+            land_plot.rental_price = 10_000_000; // Initial rental price per unit per day (0.01 SOL)
+        }
+
+        land_plot.owner = ctx.accounts.creator.key();
+        land_plot.start_x = start_x;
+        land_plot.start_y = start_y;
+        land_plot.width = width;
+        land_plot.height = height;
+
+        Ok(())
+    }
+
+    pub fn list_for_sale(
+        ctx: Context<ListLand>,
+        start_x: u64,
+        start_y: u64,
+        width: u64,
+        height: u64,
+        price_per_unit: u64,
+    ) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
+
+        // Verify owner
         require!(
-            args.width * args.height == 10_000_000_000,
+            land_plot.owner == ctx.accounts.owner.key(),
+            LandError::NotOwner
+        );
+
+        // Verify dimensions are within owned plot
+        require!(
+            start_x >= land_plot.start_x
+                && start_y >= land_plot.start_y
+                && (start_x + width) <= (land_plot.start_x + land_plot.width)
+                && (start_y + height) <= (land_plot.start_y + land_plot.height),
             LandError::InvalidDimensions
         );
 
-        country.authority = ctx.accounts.authority.key();
-        country.width = args.width;
-        country.height = args.height;
-        country.total_units = args.width * args.height;
-        country.units_sold = 0;
-        country.payment_mint = ctx.accounts.payment_mint.key();
-        country.price_per_unit = args.price_per_unit;
-        country.treasury = ctx.accounts.treasury.key();
-        country.regions = vec![];
+        require!(!land_plot.is_for_rent, LandError::AlreadyRented);
 
-        // Initialize empty vectors for grid state
-        grid.occupied_coordinates = vec![];
-        grid.region_plots = vec![];
-
-        emit!(CountryInitialized {
-            authority: country.authority,
-            width: country.width,
-            height: country.height,
-            payment_mint: country.payment_mint,
-        });
+        land_plot.is_for_sale = true;
+        land_plot.sale_start_x = start_x;
+        land_plot.sale_start_y = start_y;
+        land_plot.sale_width = width;
+        land_plot.sale_height = height;
+        land_plot.price_per_unit = price_per_unit;
 
         Ok(())
     }
 
-    pub fn purchase_land(ctx: Context<PurchaseLand>, args: PurchaseLandArgs) -> Result<()> {
-        let country = &mut ctx.accounts.country;
-        let grid = &mut ctx.accounts.grid;
-        let plot = &mut ctx.accounts.land_plot;
-
-        // Verify land availability and bounds
+    pub fn remove_from_sale(ctx: Context<ListLand>) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
         require!(
-            is_valid_plot(country, args.start_x, args.start_y, args.width, args.height)?,
-            LandError::InvalidPlot
+            land_plot.owner == ctx.accounts.owner.key(),
+            LandError::NotOwner
         );
 
-        require!(
-            !is_land_occupied(grid, args.start_x, args.start_y, args.width, args.height)?,
-            LandError::LandOccupied
-        );
-
-        // Calculate payment
-        let total_units = args.width * args.height;
-        let payment_amount = total_units
-            .checked_mul(country.price_per_unit)
-            .ok_or(LandError::CalculationError)?;
-
-        // Process payment
-        process_payment(
-            payment_amount,
-            &ctx.accounts.buyer_token,
-            &ctx.accounts.treasury_token,
-            &ctx.accounts.buyer,
-            &ctx.accounts.token_program,
-        )?;
-
-        // Create the plot
-        plot.owner = ctx.accounts.buyer.key();
-        plot.start_x = args.start_x;
-        plot.start_y = args.start_y;
-        plot.width = args.width;
-        plot.height = args.height;
-        plot.is_listed = false;
-        plot.price_per_unit = 0;
-        plot.timestamp = Clock::get()?.unix_timestamp;
-        plot.neighbors =
-            find_neighboring_plots(grid, args.start_x, args.start_y, args.width, args.height)?;
-        plot.region_id = calculate_region_id(args.start_x, args.start_y);
-
-        // Update grid state
-        update_grid_state(
-            grid,
-            args.start_x,
-            args.start_y,
-            args.width,
-            args.height,
-            plot.key(),
-        )?;
-
-        // Update country stats
-        country.units_sold = country
-            .units_sold
-            .checked_add(total_units)
-            .ok_or(LandError::CalculationError)?;
-
-        emit!(LandPurchased {
-            buyer: ctx.accounts.buyer.key(),
-            plot: plot.key(),
-            start_x: args.start_x,
-            start_y: args.start_y,
-            width: args.width,
-            height: args.height,
-            price: payment_amount,
-        });
+        land_plot.is_for_sale = false;
+        land_plot.price_per_unit = 0;
+        land_plot.sale_width = 0;
+        land_plot.sale_height = 0;
 
         Ok(())
     }
 
-    pub fn split_plot(ctx: Context<SplitPlot>, args: SplitPlotArgs) -> Result<()> {
-        let grid = &mut ctx.accounts.grid;
-        let original_plot = &mut ctx.accounts.original_plot;
+    pub fn list_for_rent(
+        ctx: Context<ListLand>,
+        start_x: u64,
+        start_y: u64,
+        width: u64,
+        height: u64,
+        rental_price: u64,
+    ) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
+
+        require!(
+            land_plot.owner == ctx.accounts.owner.key(),
+            LandError::NotOwner
+        );
+
+        // Verify dimensions
+        require!(
+            start_x >= land_plot.start_x
+                && start_y >= land_plot.start_y
+                && (start_x + width) <= (land_plot.start_x + land_plot.width)
+                && (start_y + height) <= (land_plot.start_y + land_plot.height),
+            LandError::InvalidDimensions
+        );
+
+        require!(!land_plot.is_for_sale, LandError::CurrentlyForSale);
+
+        land_plot.is_for_rent = true;
+        land_plot.rental_start_x = start_x;
+        land_plot.rental_start_y = start_y;
+        land_plot.rental_width = width;
+        land_plot.rental_height = height;
+        land_plot.rental_price = rental_price;
+
+        Ok(())
+    }
+
+    pub fn remove_from_rent(ctx: Context<ListLand>) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
+        require!(
+            land_plot.owner == ctx.accounts.owner.key(),
+            LandError::NotOwner
+        );
+
+        land_plot.is_for_rent = false;
+        land_plot.rental_price = 0;
+        land_plot.rental_width = 0;
+        land_plot.rental_height = 0;
+        land_plot.rental_end_time = 0;
+        land_plot.renter = Pubkey::default();
+
+        Ok(())
+    }
+
+    pub fn buy_land(
+        ctx: Context<BuyLand>,
+        purchase_start_x: u64,
+        purchase_start_y: u64,
+        purchase_width: u64,
+        purchase_height: u64,
+    ) -> Result<()> {
+        let original_plot = &ctx.accounts.original_plot;
         let new_plot = &mut ctx.accounts.new_plot;
 
-        // Verify ownership and plot validity
+        require!(original_plot.is_for_sale, LandError::NotForSale);
+
+        // Verify purchase dimensions are within listed sale area
         require!(
-            original_plot.owner == ctx.accounts.owner.key(),
-            LandError::NotOwner
+            purchase_start_x >= original_plot.sale_start_x
+                && purchase_start_y >= original_plot.sale_start_y
+                && (purchase_start_x + purchase_width)
+                    <= (original_plot.sale_start_x + original_plot.sale_width)
+                && (purchase_start_y + purchase_height)
+                    <= (original_plot.sale_start_y + original_plot.sale_height),
+            LandError::InvalidDimensions
         );
 
-        require!(
-            is_within_plot(
-                original_plot,
-                args.split_x,
-                args.split_y,
-                args.width,
-                args.height
-            )?,
-            LandError::InvalidSplit
-        );
+        // Calculate total price
+        let total_price = original_plot
+            .price_per_unit
+            .checked_mul(purchase_width)
+            .ok_or(LandError::CalculationError)?
+            .checked_mul(purchase_height)
+            .ok_or(LandError::CalculationError)?;
 
-        // Create new plot
-        new_plot.owner = ctx.accounts.owner.key();
-        new_plot.start_x = args.split_x;
-        new_plot.start_y = args.split_y;
-        new_plot.width = args.width;
-        new_plot.height = args.height;
-        new_plot.is_listed = false;
-        new_plot.price_per_unit = 0;
-        new_plot.timestamp = Clock::get()?.unix_timestamp;
-        new_plot.neighbors =
-            find_neighboring_plots(grid, args.split_x, args.split_y, args.width, args.height)?;
-        new_plot.region_id = calculate_region_id(args.split_x, args.split_y);
+        // Transfer SOL to current owner
+        **ctx.accounts.buyer.try_borrow_mut_lamports()? = ctx
+            .accounts
+            .buyer
+            .lamports()
+            .checked_sub(total_price)
+            .ok_or(LandError::InsufficientFunds)?;
+        **ctx.accounts.current_owner.try_borrow_mut_lamports()? = ctx
+            .accounts
+            .current_owner
+            .lamports()
+            .checked_add(total_price)
+            .ok_or(LandError::CalculationError)?;
 
-        // Update original plot dimensions
-        update_original_plot_after_split(
-            original_plot,
-            args.split_x,
-            args.split_y,
-            args.width,
-            args.height,
-        )?;
-
-        // Update grid state
-        update_grid_state(
-            grid,
-            args.split_x,
-            args.split_y,
-            args.width,
-            args.height,
-            new_plot.key(),
-        )?;
-
-        emit!(PlotSplit {
-            original_plot: original_plot.key(),
-            new_plot: new_plot.key(),
-            split_x: args.split_x,
-            split_y: args.split_y,
-            width: args.width,
-            height: args.height,
-        });
+        // Initialize new plot for buyer
+        new_plot.owner = ctx.accounts.buyer.key();
+        new_plot.start_x = purchase_start_x;
+        new_plot.start_y = purchase_start_y;
+        new_plot.width = purchase_width;
+        new_plot.height = purchase_height;
+        new_plot.is_for_sale = false;
+        new_plot.is_for_rent = false;
 
         Ok(())
     }
 
-    pub fn merge_plots(ctx: Context<MergePlots>) -> Result<()> {
-        let grid = &mut ctx.accounts.grid;
-        let plot_a = &mut ctx.accounts.plot_a;
-        let plot_b = &mut ctx.accounts.plot_b;
+    pub fn rent_land(
+        ctx: Context<RentLand>,
+        rental_start_x: u64,
+        rental_start_y: u64,
+        rental_width: u64,
+        rental_height: u64,
+        rental_duration_days: i64,
+    ) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
 
-        // Verify ownership and adjacency
+        require!(land_plot.is_for_rent, LandError::NotForRent);
+        require!(!land_plot.is_for_sale, LandError::CurrentlyForSale);
+
+        // Verify rental dimensions
         require!(
-            plot_a.owner == plot_b.owner && plot_a.owner == ctx.accounts.owner.key(),
-            LandError::NotOwner
+            rental_start_x >= land_plot.rental_start_x
+                && rental_start_y >= land_plot.rental_start_y
+                && (rental_start_x + rental_width)
+                    <= (land_plot.rental_start_x + land_plot.rental_width)
+                && (rental_start_y + rental_height)
+                    <= (land_plot.rental_start_y + land_plot.rental_height),
+            LandError::InvalidDimensions
         );
 
-        require!(
-            are_plots_adjacent(plot_a, plot_b)?,
-            LandError::PlotsNotAdjacent
-        );
+        // Calculate total rental price
+        let total_rental_price = land_plot
+            .rental_price
+            .checked_mul(rental_width)
+            .ok_or(LandError::CalculationError)?
+            .checked_mul(rental_height)
+            .ok_or(LandError::CalculationError)?
+            .checked_mul(rental_duration_days as u64)
+            .ok_or(LandError::CalculationError)?;
 
-        // Calculate new dimensions
-        let (new_x, new_y, new_width, new_height) = calculate_merged_dimensions(plot_a, plot_b)?;
+        // Transfer rental payment
+        **ctx.accounts.renter.try_borrow_mut_lamports()? = ctx
+            .accounts
+            .renter
+            .lamports()
+            .checked_sub(total_rental_price)
+            .ok_or(LandError::InsufficientFunds)?;
+        **ctx.accounts.owner.try_borrow_mut_lamports()? = ctx
+            .accounts
+            .owner
+            .lamports()
+            .checked_add(total_rental_price)
+            .ok_or(LandError::CalculationError)?;
 
-        // Update plot_a with merged dimensions
-        plot_a.owner = ctx.accounts.owner.key();
-        plot_a.start_x = new_x;
-        plot_a.start_y = new_y;
-        plot_a.width = new_width;
-        plot_a.height = new_height;
-        plot_a.is_listed = false;
-        plot_a.price_per_unit = 0;
-        plot_a.timestamp = Clock::get()?.unix_timestamp;
-        plot_a.neighbors = find_neighboring_plots(grid, new_x, new_y, new_width, new_height)?;
-        plot_a.region_id = calculate_region_id(new_x, new_y);
-
-        // Update grid state
-        update_grid_after_merge(
-            grid,
-            plot_a.key(),
-            plot_b.key(),
-            new_x,
-            new_y,
-            new_width,
-            new_height,
-        )?;
-
-        emit!(PlotsMerged {
-            plot_a: plot_a.key(),
-            plot_b: plot_b.key(),
-            new_x: new_x,
-            new_y: new_y,
-            new_width: new_width,
-            new_height: new_height,
-        });
+        // Set rental information
+        land_plot.renter = ctx.accounts.renter.key();
+        land_plot.rental_end_time = Clock::get()?.unix_timestamp + (rental_duration_days * 86400);
+        land_plot.is_for_rent = false; // Remove from rental listing while rented
 
         Ok(())
     }
+
+    pub fn end_rental(ctx: Context<EndRental>) -> Result<()> {
+        let land_plot = &mut ctx.accounts.land_plot;
+
+        // Verify rental has expired
+        require!(
+            Clock::get()?.unix_timestamp >= land_plot.rental_end_time,
+            LandError::RentalNotExpired
+        );
+
+        // Reset rental information
+        land_plot.renter = Pubkey::default();
+        land_plot.rental_end_time = 0;
+        land_plot.is_for_rent = true; // Automatically relist for rent
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CreateLandPlot<'info> {
+    #[account(
+        init,
+        payer = creator,
+        space = 8 + // discriminator
+               32 + // owner
+               8 + // start_x
+               8 + // start_y
+               8 + // width
+               8 + // height
+               1 + // is_for_sale
+               1 + // is_for_rent
+               8 + // price_per_unit
+               8 + // sale_start_x
+               8 + // sale_start_y
+               8 + // sale_width
+               8 + // sale_height
+               8 + // rental_price
+               8 + // rental_start_x
+               8 + // rental_start_y
+               8 + // rental_width
+               8 + // rental_height
+               8 + // rental_end_time
+               32  // renter
+    )]
+    pub land_plot: Account<'info, LandPlot>,
+    #[account(mut)]
+    pub creator: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ListLand<'info> {
+    #[account(mut)]
+    pub land_plot: Account<'info, LandPlot>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct BuyLand<'info> {
+    #[account(mut)]
+    pub original_plot: Account<'info, LandPlot>,
+    #[account(
+        init,
+        payer = buyer,
+        space = 8 + 32 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 32
+    )]
+    pub new_plot: Account<'info, LandPlot>,
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+    /// CHECK: This is safe because we only credit SOL to this account
+    #[account(
+        mut,
+        constraint = current_owner.key() == original_plot.owner @ LandError::InvalidOwner
+    )]
+    pub current_owner: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RentLand<'info> {
+    #[account(mut)]
+    pub land_plot: Account<'info, LandPlot>,
+    #[account(mut)]
+    pub renter: Signer<'info>,
+    /// CHECK: This is safe because we only credit SOL to this account
+    #[account(
+        mut,
+        constraint = owner.key() == land_plot.owner @ LandError::InvalidOwner
+    )]
+    pub owner: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct EndRental<'info> {
+    #[account(mut)]
+    pub land_plot: Account<'info, LandPlot>,
+    /// Anyone can end an expired rental
+    pub authority: Signer<'info>,
+}
+
+#[account]
+pub struct LandPlot {
+    pub owner: Pubkey,
+    pub start_x: u64,
+    pub start_y: u64,
+    pub width: u64,
+    pub height: u64,
+    pub is_for_sale: bool,
+    pub is_for_rent: bool,
+    pub price_per_unit: u64,
+    pub sale_start_x: u64,
+    pub sale_start_y: u64,
+    pub sale_width: u64,
+    pub sale_height: u64,
+    pub rental_price: u64,
+    pub rental_start_x: u64,
+    pub rental_start_y: u64,
+    pub rental_width: u64,
+    pub rental_height: u64,
+    pub rental_end_time: i64,
+    pub renter: Pubkey,
+}
+#[error_code]
+pub enum LandError {
+    #[msg("Calculation error")]
+    CalculationError,
+    #[msg("Not the owner")]
+    NotOwner,
+    #[msg("Land is currently for sale")]
+    CurrentlyForSale,
+    #[msg("Land is already rented")]
+    AlreadyRented,
+    #[msg("Land is not for rent")]
+    NotForRent,
+    #[msg("Land is not for sale")]
+    NotForSale,
+    #[msg("Insufficient funds")]
+    InsufficientFunds,
+    #[msg("Invalid owner")]
+    InvalidOwner,
+    #[msg("Invalid dimensions")]
+    InvalidDimensions,
+    #[msg("Rental period has not expired yet")]
+    RentalNotExpired,
+    #[msg("Invalid rental duration")]
+    InvalidRentalDuration,
+    #[msg("Invalid price")]
+    InvalidPrice,
 }
