@@ -9,7 +9,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import * as THREE from "three";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
-const TopGRepublicaLanding = () => {
+const GtopiaLanding = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sectionRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -182,7 +182,7 @@ const TopGRepublicaLanding = () => {
                 Own unique, blockchain-verified land parcels as NFTs. Each plot
                 is a piece of digital real estate with verifiable ownership.
               </p>
-              <Link href="/LandMap">
+              <Link href="/landMap">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -370,4 +370,4 @@ const TopGRepublicaLanding = () => {
   );
 };
 
-export default TopGRepublicaLanding;
+export default GtopiaLanding;
