@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("4AxDhKc6HoRmtUnjHFup9x6uEyd8byg2EVwZUa9vzSgy");
+declare_id!("puwD5S1FtQFqhxNTAq7EEjGzz3hoWnyNRHmx4wAZzTo");
 
 #[program]
 pub mod gtopia_land {

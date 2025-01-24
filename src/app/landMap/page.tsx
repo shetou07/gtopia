@@ -53,7 +53,7 @@ const LandMap: React.FC = () => {
       );
 
       const programId = new anchor.web3.PublicKey(
-        "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+        "puwD5S1FtQFqhxNTAq7EEjGzz3hoWnyNRHmx4wAZzTo"
       );
       const landProgram = new Program<Idl>(
         idl as unknown as anchor.Idl,
@@ -195,7 +195,7 @@ const LandMap: React.FC = () => {
       <div className="max-w-7xl mx-auto grid md:grid-cols-[3fr,1fr] gap-8">
         <div className="bg-gray-900/50 rounded-2xl p-6">
           <h2 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">
-            Gtopia Land Map
+            Gtopia Land
           </h2>
           <div className="grid grid-cols-10 gap-2">
             {landParcels.map((parcel: Parcel) => (
@@ -214,7 +214,7 @@ const LandMap: React.FC = () => {
         </div>
 
         <div>
-          <WalletMultiButton className="mb-6 w-full" />
+          <WalletMultiButton className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded" />
           {renderParcelActions()}
         </div>
       </div>
