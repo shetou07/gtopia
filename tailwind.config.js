@@ -1,6 +1,5 @@
-import type { Config } from "tailwindcss";
-
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -12,13 +11,7 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
-      backgroundColor: {
-        black: "#0a0a0a",
-      },
-      textColor: {
-        white: "#ededed",
-      },
     },
   },
   plugins: [],
-} satisfies Config;
+};

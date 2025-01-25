@@ -1,10 +1,6 @@
 use anchor_lang::prelude::*;
-use solana_program::pubkey;
 
-declare_id!("4AxDhKc6HoRmtUnjHFup9x6uEyd8byg2EVwZUa9vzSgy");
-
-// Initial owner of all GTopia land
-pub const INITIAL_OWNER: Pubkey = pubkey!("32vAzHuyxfGV6hC1vM8Gonh3s9kGfUdwaNJmjTNfV82b");
+declare_id!("puwD5S1FtQFqhxNTAq7EEjGzz3hoWnyNRHmx4wAZzTo");
 
 #[program]
 pub mod gtopia_land {
@@ -18,14 +14,6 @@ pub mod gtopia_land {
         height: u64,
     ) -> Result<()> {
         let land_plot = &mut ctx.accounts.land_plot;
-
-        // If creator is initial owner, land is automatically listed for sale and rent
-        if ctx.accounts.creator.key() == INITIAL_OWNER {
-            land_plot.is_for_sale = true;
-            land_plot.is_for_rent = true;
-            land_plot.price_per_unit = 100_000_000; // Initial price per unit (0.1 SOL)
-            land_plot.rental_price = 10_000_000; // Initial rental price per unit per day (0.01 SOL)
-        }
 
         land_plot.owner = ctx.accounts.creator.key();
         land_plot.start_x = start_x;
