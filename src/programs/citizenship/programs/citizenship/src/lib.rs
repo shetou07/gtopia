@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-declare_id!("CtbpDgdRNsPsUeLHU46p7vB4ZT678cp3rHsvwn2hgKWj"); // Replace with your program ID
+declare_id!("FAASs3638wEGwWxhp8EkaDuU2ENV1r4c1nJPN9fHLGtp"); // Replace with your program ID
 
 #[program]
 pub mod gtopia_citizenship {

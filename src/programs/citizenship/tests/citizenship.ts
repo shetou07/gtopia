@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
-import { Citizenship } from "../target/types/citizenship";
+import { Citizenship } from "../target/types/gtopia_citizenship";
 
 describe("citizenship", () => {
   // Configure the client to use the local cluster.

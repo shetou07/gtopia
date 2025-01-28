@@ -223,13 +223,15 @@ const GtopiaLanding = () => {
                 rights, exclusive perks, and a stake in our decentralized
                 nation.
               </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-yellow-600 text-white px-6 py-3 rounded-full hover:bg-yellow-700 transition duration-300"
-              >
-                Get Citizenship
-              </motion.button>
+              <Link href="/citizenship">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-700 transition duration-300"
+                >
+                  Get Citizenship
+                </motion.button>
+              </Link>
             </div>
 
             {/* AI Assistant */}
