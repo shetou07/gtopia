@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const VisaTimer = ({ expiryTime }) => {
+interface VisaTimerProps {
+  expiryTime: string;
+}
+
+const VisaTimer: React.FC<VisaTimerProps> = ({ expiryTime }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const router = useRouter();
 
