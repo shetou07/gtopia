@@ -98,7 +98,13 @@ pub mod gtopia_citizenship {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8 + 8)]
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32 + 8 + 8 + 8 + 8,
+        seeds = [b"state".as_ref()],
+        bump
+    )]
     pub state: Account<'info, ProgramState>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -112,7 +118,9 @@ pub struct PurchaseCitizenship<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1 + 8 + 8 + 1
+        space = 8 + 32 + 1 + 8 + 8 + 1,
+        seeds = [b"citizenship", payer.key().as_ref()],
+        bump
     )]
     pub citizenship: Account<'info, Citizenship>,
     /// CHECK: This is the wallet that will receive the payment
@@ -130,7 +138,9 @@ pub struct PurchaseVisa<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1 + 8 + 8 + 1
+        space = 8 + 32 + 1 + 8 + 8 + 1,
+        seeds = [b"visa", payer.key().as_ref()],
+        bump
     )]
     pub visa: Account<'info, Visa>,
     /// CHECK: This is the wallet that will receive the payment
