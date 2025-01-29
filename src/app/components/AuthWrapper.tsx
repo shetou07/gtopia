@@ -67,7 +67,7 @@ const AuthWrapper = ({
     const checkAuthorization = async () => {
       if (!connected || !publicKey) {
         setIsAuthorized(false);
-        router.push("/citizenship");
+        router.push("/landing");
         return;
       }
 
