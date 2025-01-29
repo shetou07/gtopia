@@ -1,0 +1,158 @@
+{
+  "version": "0.1.0",
+  "name": "gtopia_land",
+  "instructions": [
+    {
+      "name": "createLandPlot",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": true },
+        { "name": "creator", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "startX", "type": "u64" },
+        { "name": "startY", "type": "u64" },
+        { "name": "width", "type": "u64" },
+        { "name": "height", "type": "u64" }
+      ]
+    },
+    {
+      "name": "listForSale",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "startX", "type": "u64" },
+        { "name": "startY", "type": "u64" },
+        { "name": "width", "type": "u64" },
+        { "name": "height", "type": "u64" },
+        { "name": "pricePerUnit", "type": "u64" }
+      ]
+    },
+    {
+      "name": "removeFromSale",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    },
+    {
+      "name": "listForRent",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "startX", "type": "u64" },
+        { "name": "startY", "type": "u64" },
+        { "name": "width", "type": "u64" },
+        { "name": "height", "type": "u64" },
+        { "name": "rentalPrice", "type": "u64" }
+      ]
+    },
+    {
+      "name": "removeFromRent",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "owner", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    },
+    {
+      "name": "buyLand",
+      "accounts": [
+        { "name": "originalPlot", "isMut": true, "isSigner": false },
+        { "name": "newPlot", "isMut": true, "isSigner": true },
+        { "name": "buyer", "isMut": true, "isSigner": true },
+        { "name": "currentOwner", "isMut": true, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "purchaseStartX", "type": "u64" },
+        { "name": "purchaseStartY", "type": "u64" },
+        { "name": "purchaseWidth", "type": "u64" },
+        { "name": "purchaseHeight", "type": "u64" }
+      ]
+    },
+    {
+      "name": "rentLand",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "renter", "isMut": true, "isSigner": true },
+        { "name": "owner", "isMut": true, "isSigner": false }
+      ],
+      "args": [
+        { "name": "rentalStartX", "type": "u64" },
+        { "name": "rentalStartY", "type": "u64" },
+        { "name": "rentalWidth", "type": "u64" },
+        { "name": "rentalHeight", "type": "u64" },
+        { "name": "rentalDurationDays", "type": "i64" }
+      ]
+    },
+    {
+      "name": "endRental",
+      "accounts": [
+        { "name": "landPlot", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "LandPlot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner", "type": "publicKey" },
+          { "name": "startX", "type": "u64" },
+          { "name": "startY", "type": "u64" },
+          { "name": "width", "type": "u64" },
+          { "name": "height", "type": "u64" },
+          { "name": "isForSale", "type": "bool" },
+          { "name": "isForRent", "type": "bool" },
+          { "name": "pricePerUnit", "type": "u64" },
+          { "name": "saleStartX", "type": "u64" },
+          { "name": "saleStartY", "type": "u64" },
+          { "name": "saleWidth", "type": "u64" },
+          { "name": "saleHeight", "type": "u64" },
+          { "name": "rentalPrice", "type": "u64" },
+          { "name": "rentalStartX", "type": "u64" },
+          { "name": "rentalStartY", "type": "u64" },
+          { "name": "rentalWidth", "type": "u64" },
+          { "name": "rentalHeight", "type": "u64" },
+          { "name": "rentalEndTime", "type": "i64" },
+          { "name": "renter", "type": "publicKey" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "CalculationError", "msg": "Calculation error" },
+    { "code": 6001, "name": "NotOwner", "msg": "Not the owner" },
+    {
+      "code": 6002,
+      "name": "CurrentlyForSale",
+      "msg": "Land is currently for sale"
+    },
+    { "code": 6003, "name": "AlreadyRented", "msg": "Land is already rented" },
+    { "code": 6004, "name": "NotForRent", "msg": "Land is not for rent" },
+    { "code": 6005, "name": "NotForSale", "msg": "Land is not for sale" },
+    { "code": 6006, "name": "InsufficientFunds", "msg": "Insufficient funds" },
+    { "code": 6007, "name": "InvalidOwner", "msg": "Invalid owner" },
+    { "code": 6008, "name": "InvalidDimensions", "msg": "Invalid dimensions" },
+    {
+      "code": 6009,
+      "name": "RentalNotExpired",
+      "msg": "Rental period has not expired yet"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidRentalDuration",
+      "msg": "Invalid rental duration"
+    },
+    { "code": 6011, "name": "InvalidPrice", "msg": "Invalid price" }
+  ]
+}
