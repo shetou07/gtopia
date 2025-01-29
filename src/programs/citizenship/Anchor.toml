@@ -2,7 +2,7 @@
 seeds = false
 skip-lint = false
 [programs.localnet]
-citizenship = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+citizenship = "FAASs3638wEGwWxhp8EkaDuU2ENV1r4c1nJPN9fHLGtp"
 
 [registry]
 url = "https://api.apr.dev"

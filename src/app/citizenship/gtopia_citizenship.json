@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "name": "gtopia_citizenship",
+  "instructions": [
+    {
+      "name": "initialize",
+      "accounts": [
+        { "name": "state", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "normalCitizenshipPrice", "type": "u64" },
+        { "name": "seniorCitizenshipPrice", "type": "u64" },
+        { "name": "normalVisaPricePerHour", "type": "u64" },
+        { "name": "seniorVisaPricePerHour", "type": "u64" }
+      ]
+    },
+    {
+      "name": "purchaseCitizenship",
+      "accounts": [
+        { "name": "state", "isMut": true, "isSigner": false },
+        { "name": "citizenship", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [{ "name": "isSenior", "type": "bool" }]
+    },
+    {
+      "name": "purchaseVisa",
+      "accounts": [
+        { "name": "state", "isMut": true, "isSigner": false },
+        { "name": "visa", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "isSenior", "type": "bool" },
+        { "name": "durationHours", "type": "u64" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ProgramState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "normalCitizenshipPrice", "type": "u64" },
+          { "name": "seniorCitizenshipPrice", "type": "u64" },
+          { "name": "normalVisaPricePerHour", "type": "u64" },
+          { "name": "seniorVisaPricePerHour", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "Citizenship",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner", "type": "publicKey" },
+          { "name": "isSenior", "type": "bool" },
+          { "name": "startTime", "type": "i64" },
+          { "name": "expiryTime", "type": "i64" },
+          { "name": "isActive", "type": "bool" }
+        ]
+      }
+    },
+    {
+      "name": "Visa",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner", "type": "publicKey" },
+          { "name": "isSenior", "type": "bool" },
+          { "name": "startTime", "type": "i64" },
+          { "name": "expiryTime", "type": "i64" },
+          { "name": "isActive", "type": "bool" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidDuration",
+      "msg": "Duration must be greater than 0"
+    },
+    {
+      "code": 6001,
+      "name": "DurationTooLong",
+      "msg": "Visa duration cannot exceed 30 days"
+    }
+  ]
+}

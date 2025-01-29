@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-declare_id!("CtbpDgdRNsPsUeLHU46p7vB4ZT678cp3rHsvwn2hgKWj"); // Replace with your program ID
+declare_id!("FAASs3638wEGwWxhp8EkaDuU2ENV1r4c1nJPN9fHLGtp"); // Replace with your program ID
 
 #[program]
 pub mod gtopia_citizenship {
@@ -98,7 +98,13 @@ pub mod gtopia_citizenship {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8 + 8)]
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32 + 8 + 8 + 8 + 8,
+        seeds = [b"state".as_ref()],
+        bump
+    )]
     pub state: Account<'info, ProgramState>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -112,7 +118,9 @@ pub struct PurchaseCitizenship<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1 + 8 + 8 + 1
+        space = 8 + 32 + 1 + 8 + 8 + 1,
+        seeds = [b"citizenship", payer.key().as_ref()],
+        bump
     )]
     pub citizenship: Account<'info, Citizenship>,
     /// CHECK: This is the wallet that will receive the payment
@@ -130,7 +138,9 @@ pub struct PurchaseVisa<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1 + 8 + 8 + 1
+        space = 8 + 32 + 1 + 8 + 8 + 1,
+        seeds = [b"visa", payer.key().as_ref()],
+        bump
     )]
     pub visa: Account<'info, Visa>,
     /// CHECK: This is the wallet that will receive the payment

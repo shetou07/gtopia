@@ -1,3 +1,5 @@
+// src/app/page.tsx
+
 import React from "react";
 import GtopiaLanding from "./components/Landing";
 // import LandMap from "./landMap/page";
