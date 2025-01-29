@@ -1,7 +1,7 @@
 // src/app/page.tsx
 
 import React from "react";
-import GtopiaLanding from "./components/Landing";
+import GtopiaLanding from "./landing/page";
 // import LandMap from "./landMap/page";
 
 export default function Home() {
