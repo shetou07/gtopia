@@ -38,9 +38,9 @@ const VisaTimer: React.FC<VisaTimerProps> = ({ expiryTime }) => {
   }, [expiryTime, router]);
 
   return (
-    <div className="fixed top-24 right-8 bg-gradient-to-r from-blue-900/50 to-blue-800/50 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 border border-blue-500/30 shadow-lg">
-      <Clock className="w-4 h-4 text-blue-400" />
-      <span className="font-mono text-blue-300">{timeLeft}</span>
+    <div className="fixed top-24 right-8 bg-gradient-to-r from-red-900/50 to-red-800/50 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 border border-red-500/30 shadow-lg">
+      <Clock className="w-4 h-4 text-red-400" />
+      <span className="font-mono text-red-300">{timeLeft}</span>
     </div>
   );
 };
