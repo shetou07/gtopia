@@ -5,6 +5,7 @@
 
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import { Program, AnchorProvider, web3, BN } from "@project-serum/anchor";
@@ -503,17 +504,19 @@ const CitizenshipInterface = () => {
                 and exclusive benefits.
               </p>
 
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={purchaseCitizenship}
-                disabled={loading}
-                className={`w-full ${
-                  loading ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
-                } text-white font-bold py-4 px-8 rounded-xl transition duration-300`}
-              >
-                {loading ? "Purchasing..." : "Purchase Citizenship"}
-              </motion.button>
+              <Link href="/home">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={purchaseCitizenship}
+                  disabled={loading}
+                  className={`w-full ${
+                    loading ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
+                  } text-white font-bold py-4 px-8 rounded-xl transition duration-300`}
+                >
+                  {loading ? "Purchasing..." : "Purchase Citizenship"}
+                </motion.button>
+              </Link>
             </CardContent>
           </Card>
 
