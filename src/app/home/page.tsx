@@ -6,7 +6,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import {
   Globe2,
   Trophy,
 } from "lucide-react";
+import VisaTimer from "../components/VisaTimer";
 
 const HomePage = () => {
   const getGreeting = () => {
@@ -28,6 +29,15 @@ const HomePage = () => {
     if (hour >= 17 && hour < 22) return "Good Evening";
     return "Late Night";
   };
+  const [visaExpiry, setVisaExpiry] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedExpiry = localStorage.getItem("visaExpiry");
+    if (storedExpiry) {
+      setVisaExpiry(storedExpiry);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Sticky Header - Moved outside the hero section */}
@@ -37,6 +47,7 @@ const HomePage = () => {
           <WalletMultiButton className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full" />
         </div>
       </div>
+      {visaExpiry && <VisaTimer expiryTime={visaExpiry} />}
 
       <div className="pt-24">
         <div className="bg-gradient-to-br from-black via-red-900/20 to-black px-8 py-12">
