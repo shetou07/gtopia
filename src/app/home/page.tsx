@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @next/next/no-img-element */
+
+// src/app/home/page.tsx
+
 "use client";
 
 import React from "react";
@@ -23,7 +26,7 @@ const HomePage = () => {
     if (hour >= 5 && hour < 12) return "Good Morning";
     if (hour >= 12 && hour < 17) return "Good Afternoon";
     if (hour >= 17 && hour < 22) return "Good Evening";
-    return "Good Night";
+    return "Late Night";
   };
   return (
     <div className="min-h-screen bg-black text-white">

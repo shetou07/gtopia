@@ -1,4 +1,4 @@
-// src/app/components/Landing.tsx
+// src/app/landing/page.tsx
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
