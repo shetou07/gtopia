@@ -5,6 +5,7 @@
 
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import { Program, AnchorProvider, web3, BN } from "@project-serum/anchor";
@@ -13,6 +14,8 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IDL from "./gtopia_citizenship.json";
 import { AlertCircle, Check, Clock, Crown } from "lucide-react";
+import CustomDialog from "../components/CustomDialog";
+import { useRouter } from "next/navigation";
 
 const PROGRAM_ID = new PublicKey(
   "FgRcLXK5WsX8BPPhzyBpMtg5sVSCSDBaMN3ARWgxWbuc"
@@ -218,8 +221,9 @@ const CitizenshipInterface = () => {
 
     try {
       const citizenshipPDA = await findCitizenshipPDA(
-        provider.wallet.publicKey,
-        program.programId
+        provider?.wallet.publicKey ||
+          new PublicKey("11111111111111111111111111111111"),
+        program?.programId || new PublicKey("11111111111111111111111111111111")
       );
 
       const price = isSenior
@@ -271,8 +275,9 @@ const CitizenshipInterface = () => {
 
     try {
       const visaPDA = await findVisaPDA(
-        provider.wallet.publicKey,
-        program.programId
+        provider?.wallet.publicKey ||
+          new PublicKey("11111111111111111111111111111111"),
+        program?.programId || new PublicKey("11111111111111111111111111111111")
       );
 
       const pricePerHour = isSenior
@@ -310,6 +315,97 @@ const CitizenshipInterface = () => {
       setError(handleTransactionError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add these new state variables inside CitizenshipInterface component
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    type: "visa" | "upgrade" | "citizen" | "default";
+    title: string;
+    description: string;
+  }>({
+    isOpen: false,
+    type: "default",
+    title: "",
+    description: "",
+  });
+  const router = useRouter();
+
+  // Add this new function inside CitizenshipInterface component
+  const handlePurchaseAttempt = async () => {
+    try {
+      // Check if user has existing citizenship
+      const citizenshipPDA = await findCitizenshipPDA(
+        provider?.wallet.publicKey ||
+          new PublicKey("11111111111111111111111111111111"),
+        program?.programId || new PublicKey("11111111111111111111111111111111")
+      );
+
+      const citizenshipAccount = await program?.account.citizenship
+        .fetch(citizenshipPDA)
+        .catch(() => null);
+
+      if (citizenshipAccount) {
+        if (isSenior && !citizenshipAccount.isSenior) {
+          setDialogState({
+            isOpen: true,
+            type: "upgrade",
+            title: "Upgrade to Senior Citizenship?",
+            description:
+              "This will upgrade your current citizenship to Senior status, giving you additional benefits and privileges.",
+          });
+        } else {
+          setDialogState({
+            isOpen: true,
+            type: "citizen",
+            title: "Already a Citizen",
+            description:
+              "You are already a citizen of GTOPIA. Would you like to proceed to the home page?",
+          });
+        }
+      } else {
+        await purchaseCitizenship();
+        router.push("/home");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to check citizenship status");
+    }
+  };
+
+  // Add this new function inside CitizenshipInterface component
+  const handleVisaPurchaseAttempt = async () => {
+    try {
+      const visaPDA = await findVisaPDA(
+        provider?.wallet.publicKey ||
+          new PublicKey("11111111111111111111111111111111"),
+        program?.programId || new PublicKey("11111111111111111111111111111111")
+      );
+
+      const visaAccount = await program?.account.visa
+        .fetch(visaPDA)
+        .catch(() => null);
+
+      if (visaAccount) {
+        setDialogState({
+          isOpen: true,
+          type: "visa",
+          title: "Extend Visa Duration?",
+          description:
+            "You already have an active visa. Would you like to extend its duration?",
+        });
+      } else {
+        await purchaseVisa();
+        const expiryTime = new Date(
+          Date.now() + parseInt(visaDuration) * 60 * 60 * 1000
+        );
+        localStorage.setItem("visaExpiry", expiryTime.toISOString());
+        router.push("/home");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to check visa status");
     }
   };
 
@@ -506,13 +602,13 @@ const CitizenshipInterface = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={purchaseCitizenship}
+                onClick={handlePurchaseAttempt}
                 disabled={loading}
                 className={`w-full ${
                   loading ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
                 } text-white font-bold py-4 px-8 rounded-xl transition duration-300`}
               >
-                {loading ? "Purchasing..." : "Purchase Citizenship"}
+                {loading ? "Processing..." : "Purchase Citizenship"}
               </motion.button>
             </CardContent>
           </Card>
@@ -551,7 +647,7 @@ const CitizenshipInterface = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={purchaseVisa}
+                onClick={handleVisaPurchaseAttempt}
                 disabled={loading}
                 className={`w-full ${
                   loading
@@ -559,7 +655,7 @@ const CitizenshipInterface = () => {
                     : "bg-yellow-600 hover:bg-yellow-700"
                 } text-white font-bold py-4 px-8 rounded-xl transition duration-300`}
               >
-                {loading ? "Purchasing..." : "Purchase Visa"}
+                {loading ? "Processing..." : "Purchase Visa"}
               </motion.button>
             </CardContent>
           </Card>
@@ -568,6 +664,19 @@ const CitizenshipInterface = () => {
         {/* Admin Section */}
         {/* <AdminSection /> */}
       </div>
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        confirmText="Continue"
+        cancelText="Cancel"
+        type={dialogState.type}
+        onConfirm={() => {
+          setDialogState((prev) => ({ ...prev, isOpen: false }));
+          router.push("/home");
+        }}
+      />
     </div>
   );
 };

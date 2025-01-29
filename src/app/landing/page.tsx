@@ -1,4 +1,4 @@
-// src/app/components/Landing.tsx
+// src/app/landing/page.tsx
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
@@ -366,7 +366,7 @@ const GtopiaLanding = () => {
           </div>
         </div>
         <div className="text-center mt-8 text-gray-500 border-t border-gray-800 pt-8">
-          <p>© 2024 GTOPIA. All rights reserved.</p>
+          <p>© 2025 GTOPIA. All rights reserved.</p>
           <p className="text-sm mt-2">A Top G Republica</p>
         </div>
       </footer>
