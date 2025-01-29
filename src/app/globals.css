@@ -67,6 +67,10 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  .selected-plot {
+    border: 2px solid #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+  }
 }
 
 @layer base {
