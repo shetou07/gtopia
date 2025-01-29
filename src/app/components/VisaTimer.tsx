@@ -17,7 +17,7 @@ const VisaTimer: React.FC<VisaTimerProps> = ({ expiryTime }) => {
       const difference = expiry - now;
 
       if (difference <= 0) {
-        router.push("/citizenship");
+        router.push("/landing");
         return "0:00:00";
       }
 
