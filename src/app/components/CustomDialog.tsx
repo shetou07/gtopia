@@ -12,7 +12,18 @@ import {
 import { motion } from "framer-motion";
 import { Check, Crown, AlertCircle, Clock } from "lucide-react";
 
-const CustomDialog = ({
+interface CustomDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  confirmText: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  type: "citizen" | "upgrade" | "visa" | "default";
+}
+
+const CustomDialog: React.FC<CustomDialogProps> = ({
   isOpen,
   onClose,
   title,
@@ -20,7 +31,7 @@ const CustomDialog = ({
   confirmText,
   cancelText,
   onConfirm,
-  type, // 'citizen', 'upgrade', 'visa'
+  type, // 'citizen', 'upgrade', 'visa', 'default'
 }) => {
   const getIcon = () => {
     switch (type) {
