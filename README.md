@@ -91,8 +91,8 @@ anchor build && anchor deploy
 ## 📌 Contributors
 
 - **Ainamaani Douglas Bagambe** ([@NileBit-Labs](https://github.com/NileBit-Labs))
-- **Muhangi Eliod**
-- **Shema Collins**
+- **Muhangi Eliod** ([@NileBit-Labs](https://github.com/NileBit-Labs))
+- **Shema Collins** ([@NileBit-Labs](https://github.com/NileBit-Labs))
 
 ## 🌍 Join the Gtopia Community
 
