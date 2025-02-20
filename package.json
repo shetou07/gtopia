@@ -28,6 +28,7 @@
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "solana-agent-kit":"1.4.8",
     "three": "^0.172.0"
   },
   "devDependencies": {
